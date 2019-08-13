@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 #Samples
 #
 # convert from vob to avi with mpeg4 codec supports
@@ -96,6 +96,7 @@ mkdir -p output
 #MACRO Definitions (Values are derived from mediaHeader)
 #General Macros
 MINTOSECOND=60
+SECONDTOMILLISECOND=0.001
 FILE_NAME=0
 MEDIA_TYPE=1
 MEDIA_FORMAT=2
@@ -124,7 +125,7 @@ VIDEO_BIT_DEPTHS=40
 
 #Audio related macros
 AUDIO_FORMAT=52
-AUDIO_DURATION=56
+AUDIO_DURATION=57
 AUDIO_BIT_RATE=59
 AUDIO_CHANNELS=60
 AUDIO_SAMPLING_RATE=61
@@ -153,11 +154,24 @@ videoChromaSubSampling=""
 
 #Audio Parameters
 audioBitRate=""
+audioFormat=""
+audioDuration=""
+audioChannels=""
+audioSamplingRate=""
+audioBitDepth=""
 
 #Image Parameters
+imageFormat=""
+imageFormatCompres=""
+imageWidth=""
+imageHeight=""
+imageBitDepth=""
+imageColorspace=""
+imageCompresMode=""
 
 getVideoParams ()
 {
+	milliseconds=""
 	seconds=""
 	minutes=""
 	#-c:v "codec name" should be used
@@ -169,11 +183,14 @@ getVideoParams ()
 	#-t should be used with seconds
 	if [[ ${metaMedia[VIDEO_DURATION]} =~ "min" ]];
 	then
+		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}'|awk -F "ms" '{print $1}')
 		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
-		videoDuration=`expr $minutes \* $MINTOSECOND + $seconds`
+		videoDuration=`expr $minutes \* $MINTOSECOND + $seconds + $milliseconds \* $SECONDTOMILLISECOND`
 	else
-		videoDuration=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
+		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}'|awk -F "ms" '{print $1}')
+		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
+		videoDuration=`expr $seconds + $milliseconds \* $SECONDTOMILLISECOND`
 	fi
 
 	#increment one second for rounding off
@@ -217,12 +234,41 @@ getVideoParams ()
 
 getAudioParams ()
 {
-	echo "audio bitrate:" $audioBitRate
+	seconds=""
+	milliseconds=""
+	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
+	audioFormat=${metaMedia[AUDIO_FORMAT]}
+#	audioDuration=$(echo ${metaMedia[AUDIO_DURATION]}|awk -F "s" '{print $1}'|tr -d ' ')
+	#-t should be used with seconds
+	echo ${metaMedia[AUDIO_DURATION]}
+	if [[ ${metaMedia[AUDIO_DURATION]} =~ "min" ]];
+	then
+		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
+		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
+		audioDuration=`expr $minutes \* $MINTOSECOND + $seconds + $milliseconds \* $SECONDTOMILLISECOND`
+	else
+		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
+		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
+		audioDuration=`expr $seconds + $milliseconds \* $SECONDTOMILLISECOND`
+		echo $audioDuration $seconds $milliseconds $SECONDTOMILLISECOND
+	fi
+
+	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|awk -F "channel" '{print $1}'|tr -d ' ')
+	audioSamplingRate=$(echo ${metaMedia[AUDIO_SAMPLING_RATE]}|awk -F "kHz" '{print $1}'|tr -d ' ')
+	audioBitDepth=$(echo ${metaMedia[AUDIO_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
 }
 
 getImageParams ()
 {
-	echo "I am dummy getImageParams"
+#Image Parameters
+imageFormat=""
+imageFormatCompres=""
+imageWidth=""
+imageHeight=""
+imageBitDepth=""
+imageColorspace=""
+imageCompresMode=""
+
 }
 
 printVideoParams ()
@@ -243,7 +289,12 @@ printVideoParams ()
 
 printAudioParams ()
 {
-	echo "I am dummy getAudioParams"
+	echo "audio bitrate:" $audioBitRate
+	echo "audio Format:" $audioFormat
+	echo "audio duration:" $audioDuration
+	echo "audio channels:" $audioChannels
+	echo "audio sampling rate:" $audioSamplingRate
+	echo "audio bit depth:" $audioBitDepth
 }
 
 printImageParams ()
@@ -251,7 +302,24 @@ printImageParams ()
 	echo "I am dummy getAudioParams"
 }
 
+cmdToGenerateImage=""
+cmdToGenerateAudio=""
 cmdToGenerateVideo=""
+
+generateImage ()
+{
+	cmdToGenerateImage=$(echo "ffmpeg -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate "-b:a" $audioBitRate  "output/"$fileName)
+	echo "executing ffmpeg cmd:" $cmdToGenerateImage
+#	$cmdToGenerateImage
+}
+
+generateAudio ()
+{
+	cmdToGenerateAudio=$(echo "ffmpeg -i" $inputRefMedia "-t" $audioDuration "-b:a" $audioBitRate  "output/"$fileName)
+	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
+#	$cmdToGenerateAudio
+}
+
 generateVideo ()
 {
 	if [ $videoChromaSubSampling = "NA" ]
@@ -278,14 +346,28 @@ generateMedia ()
 	echo "Input media type:  ${metaMedia[$MEDIA_TYPE]} and name $fileName"
 	case ${metaMedia[$MEDIA_TYPE]} in
 		"Image")
-			printImageParams "${metaMedia[@]}"
+			#Get the Image parameters from each input field
+			getImageParams
+
+			#Print processed Image parameters
+			printImageParams
+
+			#Generate the Image files based on the processed input
+			generateImage
 			;;
 		"Audio")
-			printAudioParams "${metaMedia[@]}"
+			#Get the Audio parameters from each input field
+			getAudioParams
+
+			#Print processed Audio parameters
+			printAudioParams
+
+			#Generate the Audio files based on the processed input
+			generateAudio
 			;;
 		"Video")
 			#Get the Video parameters from each input field
-			getVideoParams "${metaMedia[@]}"
+			getVideoParams
 
 			#Print processed Video parameters
 			printVideoParams
