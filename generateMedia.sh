@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 #Samples
 #
 # convert from vob to avi with mpeg4 codec supports
@@ -103,12 +103,12 @@ MEDIA_FORMAT=2
 
 #Image related macros
 IMAGE_FORMAT=2
-IMAGE_FORMAT_COMPRES=13
-IMAGE_WIDTH=14
-IMAGE_HEIGHT=15
-IMAGE_BIT_DEPTH=16
-IMAGE_COLOR_SPACE=17
-IMAGE_COMPRES_MODE=19
+IMAGE_FORMAT_COMPRES=14
+IMAGE_WIDTH=15
+IMAGE_HEIGHT=16
+IMAGE_BIT_DEPTH=17
+IMAGE_COLOR_SPACE=18
+IMAGE_COMPRES_MODE=20
 
 #Video related macros
 VIDEO_CODEC_ID=28
@@ -260,15 +260,14 @@ getAudioParams ()
 
 getImageParams ()
 {
-#Image Parameters
-imageFormat=""
-imageFormatCompres=""
-imageWidth=""
-imageHeight=""
-imageBitDepth=""
-imageColorspace=""
-imageCompresMode=""
-
+	#Image Parameters
+	imageFormat=${metaMedia[IMAGE_FORMAT]}
+	imageFormatCompres=${metaMedia[IMAGE_FORMAT_COMPRES]}
+	imageWidth=$(echo ${metaMedia[IMAGE_WIDTH]}|awk -F "pixels" '{print $1}' |tr -d ' ')
+	imageHeight=$(echo ${metaMedia[IMAGE_HEIGHT]}|awk -F "pixels" '{print $1}' |tr -d ' ')
+	imageBitDepth=$(echo ${metaMedia[IMAGE_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
+	imageColorspace=${metaMedia[IMAGE_COLOR_SPACE]}
+	imageCompresMode=${metaMedia[IMAGE_COMPRES_MODE]}
 }
 
 printVideoParams ()
@@ -299,7 +298,14 @@ printAudioParams ()
 
 printImageParams ()
 {
-	echo "I am dummy getAudioParams"
+	#Printing Image Parameters
+	echo "image Format:" $imageFormat
+	echo "imageFormatCompres:" $imageFormatCompres
+	echo "imageWidth:" $imageWidth
+	echo "imageHeight:" $imageHeight
+	echo "imageBitDepth:" $imageBitDepth
+	echo "imageColorspace:" $imageColorspace
+	echo "imageCompresMode:" $imageCompresMode
 }
 
 cmdToGenerateImage=""
@@ -353,7 +359,7 @@ generateMedia ()
 			printImageParams
 
 			#Generate the Image files based on the processed input
-			generateImage
+			#generateImage
 			;;
 		"Audio")
 			#Get the Audio parameters from each input field
