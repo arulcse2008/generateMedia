@@ -1,7 +1,7 @@
 #!/bin/bash
 #set -x
-#Samples
 #
+#Samples
 # convert from vob to avi with mpeg4 codec supports
 #ffmpeg -i snatch_1.vob -f avi -c:v mpeg4 -b:v 800k -g 300 -bf 2 -c:a libmp3lame -b:a 128k snatch.avi
 #
@@ -13,23 +13,23 @@
 
 
 # Media info parameters
-mediaHeader=('General Complete name' 'General File Type' 'General Format' 'General Format profile' 'General Format Info' \
-	 'General Codec ID' 'General File size' 'General Duration' 'General Overall bit rate mode' \
-	 'General Overall bit rate' 'General Encoded date' 'General Tagged date' 'Image Format' \
-	 'Image Format/Info' 'Image Format_Compression' 'Image Width' 'Image Height' 'Image Bit depth' \
-	 'Image Color space' 'Image Chroma subsampling' 'Image Compression mode' 'Image Stream size' \
-	 'Video ID' 'Video Format' 'Video Format/Info' 'Video Format profile' 'Video Format settings' \
-	 'Video Format settings, CABAC' 'Video Format settings, ReFrames' 'Video Codec ID' \
-	 'Video Codec ID/Info' 'Video Duration' 'Video Bit rate' 'Video Width' 'Video Height' \
-	 'Video Display aspect ratio' 'Video Frame rate mode' 'Video Frame rate' 'Video Color space' \
-	 'Video Chroma subsampling' 'Video Bit depth' 'Video Scan type' 'Video Bits/(Pixel*Frame)' \
-	 'Video Stream size' 'Video Writing library' 'Video Encoding settings' \
-	 'Video Encoded date' 'Video Tagged date' 'Video Color range' 'Video Color primaries' \
-	 'Video Transfer characteristics' 'Video Matrix coefficients' 'Audio ID' \
-	 'Audio Format' 'Audio Format/Info' 'Audio Format profile' 'Audio Codec ID' 'Audio Duration' \
-	 'Audio Bit rate mode' 'Audio Bit rate' 'Audio Channel(s)' 'Audio Channel positions' \
-	 'Audio Sampling rate' 'Audio Frame rate' 'Audio Compression mode' 'Audio Stream size' \
-	 'Audio Bit depth' 'Audio Writing library' 'Audio Encoding settings' 'Audio Default' 'Audio Forced' \
+mediaHeader=('General Complete name' 'General File Type' 'General Format' 'General Format profile' 'General Format Info'\
+	 'General Codec ID' 'General File size' 'General Duration' 'General Overall bit rate mode'\
+	 'General Overall bit rate' 'General Encoded date' 'General Tagged date' 'Image Format'\
+	 'Image Format/Info' 'Image Format_Compression' 'Image Width' 'Image Height' 'Image Bit depth'\
+	 'Image Color space' 'Image Chroma subsampling' 'Image Compression mode' 'Image Stream size'\
+	 'Video ID' 'Video Format' 'Video Format/Info' 'Video Format profile' 'Video Format settings'\
+	 'Video Format settings, CABAC' 'Video Format settings, ReFrames' 'Video Codec ID'\
+	 'Video Codec ID/Info' 'Video Duration' 'Video Bit rate' 'Video Width' 'Video Height'\
+	 'Video Display aspect ratio' 'Video Frame rate mode' 'Video Frame rate' 'Video Color space'\
+	 'Video Chroma subsampling' 'Video Bit depth' 'Video Scan type' 'Video Bits/(Pixel*Frame)'\
+	 'Video Stream size' 'Video Writing library' 'Video Encoding settings'\
+	 'Video Encoded date' 'Video Tagged date' 'Video Color range' 'Video Color primaries'\
+	 'Video Transfer characteristics' 'Video Matrix coefficients' 'Audio ID'\
+	 'Audio Format' 'Audio Format/Info' 'Audio Format profile' 'Audio Codec ID' 'Audio Duration'\
+	 'Audio Bit rate mode' 'Audio Bit rate' 'Audio Channel(s)' 'Audio Channel positions'\
+	 'Audio Sampling rate' 'Audio Frame rate' 'Audio Compression mode' 'Audio Stream size'\
+	 'Audio Bit depth' 'Audio Writing library' 'Audio Encoding settings' 'Audio Default' 'Audio Forced'\
 	 'Audio Encoded date' 'Audio Tagged date')
 
 #Check whether the ffmpeg is installed in the system or not?
@@ -108,6 +108,7 @@ IMAGE_WIDTH=15
 IMAGE_HEIGHT=16
 IMAGE_BIT_DEPTH=17
 IMAGE_COLOR_SPACE=18
+IMAGE_CHROMA_SUBSAMPLING=19
 IMAGE_COMPRES_MODE=20
 
 #Video related macros
@@ -128,8 +129,11 @@ AUDIO_FORMAT=52
 AUDIO_DURATION=57
 AUDIO_BIT_RATE=59
 AUDIO_CHANNELS=60
-AUDIO_SAMPLING_RATE=61
-AUDIO_BIT_DEPTH=65
+AUDIO_SAMPLING_RATE=62
+AUDIO_FRAME_RATE=63
+AUDIO_COMPRESS_MODE=64
+AUDIO_BIT_DEPTH=66
+
 
 #Arrays of meta details, meta headers
 declare mediaData
@@ -151,6 +155,7 @@ videoFrameRate=""
 videoColorSpace=""
 videoBitDepth=""
 videoChromaSubSampling=""
+audioAvail=""
 
 #Audio Parameters
 audioBitRate=""
@@ -159,6 +164,7 @@ audioDuration=""
 audioChannels=""
 audioSamplingRate=""
 audioBitDepth=""
+audioCompresMode=""
 
 #Image Parameters
 imageFormat=""
@@ -166,7 +172,8 @@ imageFormatCompres=""
 imageWidth=""
 imageHeight=""
 imageBitDepth=""
-imageColorspace=""
+imageColorSpace=""
+imageChromaSubSampling=""
 imageCompresMode=""
 
 getVideoParams ()
@@ -174,6 +181,8 @@ getVideoParams ()
 	milliseconds=""
 	seconds=""
 	minutes=""
+	videoDuration=""
+
 	#-c:v "codec name" should be used
 	videoCodecId=${metaMedia[VIDEO_CODEC_ID]}
 
@@ -183,18 +192,14 @@ getVideoParams ()
 	#-t should be used with seconds
 	if [[ ${metaMedia[VIDEO_DURATION]} =~ "min" ]];
 	then
-		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}'|awk -F "ms" '{print $1}')
 		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
-		videoDuration=`expr $minutes \* $MINTOSECOND + $seconds + $milliseconds \* $SECONDTOMILLISECOND`
+		videoDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	else
-		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}'|awk -F "ms" '{print $1}')
-		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
-		videoDuration=`expr $seconds + $milliseconds \* $SECONDTOMILLISECOND`
+		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
+		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
+		videoDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
-
-	#increment one second for rounding off
-	videoDuration=$(($videoDuration+1))
 
 	#figure out the bitrate of the video
 	videoBitRate=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "b/s" '{print $1}')
@@ -215,8 +220,8 @@ getVideoParams ()
 	fi
 
 
-	#assign only lower case for yuv
 	#TODO need to check for colorspace apart from  yuv
+	#assign only lower case for yuv
 	videoColorSpace=${metaMedia[VIDEO_COLOR_SPACE],,}
 
 	#convert 4:2:2 to 422
@@ -236,25 +241,34 @@ getAudioParams ()
 {
 	seconds=""
 	milliseconds=""
+	minutes=""
+	audioDuration=""
+
+	if [[ ${metaMedia[AUDIO_DURATION]} = "0" || ${metaMedia[AUDIO_SAMPLING_RATE]} = "0" ]];
+	then
+		audioAvail="NO"
+		echo "No Audio data"
+		return
+	else
+		audioAvail="YES"
+	fi
+
 	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
 	audioFormat=${metaMedia[AUDIO_FORMAT]}
-#	audioDuration=$(echo ${metaMedia[AUDIO_DURATION]}|awk -F "s" '{print $1}'|tr -d ' ')
-	#-t should be used with seconds
-	echo ${metaMedia[AUDIO_DURATION]}
+
 	if [[ ${metaMedia[AUDIO_DURATION]} =~ "min" ]];
 	then
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
-		audioDuration=`expr $minutes \* $MINTOSECOND + $seconds + $milliseconds \* $SECONDTOMILLISECOND`
+		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	else
 		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
-		audioDuration=`expr $seconds + $milliseconds \* $SECONDTOMILLISECOND`
-		echo $audioDuration $seconds $milliseconds $SECONDTOMILLISECOND
+		audioDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
 
 	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|awk -F "channel" '{print $1}'|tr -d ' ')
-	audioSamplingRate=$(echo ${metaMedia[AUDIO_SAMPLING_RATE]}|awk -F "kHz" '{print $1}'|tr -d ' ')
+	audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE]}|awk -F "kHz" '{print $1}'|tr -d ' ')*1000"|bc`
 	audioBitDepth=$(echo ${metaMedia[AUDIO_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
 }
 
@@ -266,7 +280,18 @@ getImageParams ()
 	imageWidth=$(echo ${metaMedia[IMAGE_WIDTH]}|awk -F "pixels" '{print $1}' |tr -d ' ')
 	imageHeight=$(echo ${metaMedia[IMAGE_HEIGHT]}|awk -F "pixels" '{print $1}' |tr -d ' ')
 	imageBitDepth=$(echo ${metaMedia[IMAGE_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
-	imageColorspace=${metaMedia[IMAGE_COLOR_SPACE]}
+	#assign only lower case for yuv
+	imageColorSpace=${metaMedia[IMAGE_COLOR_SPACE],,}
+
+	#convert 4:2:2 to 422
+	echo  ${metaMedia[IMAGE_CHROMA_SUBSAMPLING]} "abcd"
+	if [ ${metaMedia[IMAGE_CHROMA_SUBSAMPLING]} = "0" ]
+	then
+		imageChromaSubSampling="NA"
+	else
+		imageChromaSubSampling=$(echo ${metaMedia[IMAGE_CHROMA_SUBSAMPLING]}|awk -F ":" '{print $1$2$3}')
+	fi
+
 	imageCompresMode=${metaMedia[IMAGE_COMPRES_MODE]}
 }
 
@@ -289,23 +314,24 @@ printVideoParams ()
 printAudioParams ()
 {
 	echo "audio bitrate:" $audioBitRate
-	echo "audio Format:" $audioFormat
 	echo "audio duration:" $audioDuration
 	echo "audio channels:" $audioChannels
 	echo "audio sampling rate:" $audioSamplingRate
+	echo "audio CompresMode:" $audioCompresMode
 	echo "audio bit depth:" $audioBitDepth
+	echo "audio Format:" $audioFormat
 }
 
 printImageParams ()
 {
 	#Printing Image Parameters
 	echo "image Format:" $imageFormat
-	echo "imageFormatCompres:" $imageFormatCompres
-	echo "imageWidth:" $imageWidth
-	echo "imageHeight:" $imageHeight
-	echo "imageBitDepth:" $imageBitDepth
-	echo "imageColorspace:" $imageColorspace
-	echo "imageCompresMode:" $imageCompresMode
+	echo "image FormatCompres:" $imageFormatCompres
+	echo "image Width:" $imageWidth
+	echo "image Height:" $imageHeight
+	echo "image BitDepth:" $imageBitDepth
+	echo "image Colorspace:" $imageColorSpace
+	echo "image CompresMode:" $imageCompresMode
 }
 
 cmdToGenerateImage=""
@@ -314,26 +340,42 @@ cmdToGenerateVideo=""
 
 generateImage ()
 {
-	cmdToGenerateImage=$(echo "ffmpeg -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate "-b:a" $audioBitRate  "output/"$fileName)
+	if [ $imageChromaSubSampling = "NA" ]
+	then
+		#skip chroma and colorspace configuration, input file config will be taken
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
+	else
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$fileName)
+	fi
+
 	echo "executing ffmpeg cmd:" $cmdToGenerateImage
-#	$cmdToGenerateImage
+	$cmdToGenerateImage
 }
 
 generateAudio ()
 {
-	cmdToGenerateAudio=$(echo "ffmpeg -i" $inputRefMedia "-t" $audioDuration "-b:a" $audioBitRate  "output/"$fileName)
+	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vn" "-r" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration "-b:a" $audioBitRate  "output/"$fileName)
 	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
-#	$cmdToGenerateAudio
+	$cmdToGenerateAudio
 }
 
 generateVideo ()
 {
+	audioFlags=""
+	#if the given meta data doesn't have an audio streaming, remove audio stream while generating video
+	if [ $audioAvail = "NO" ]
+	then
+		audioFlags="-an"
+	else
+		audioFlags=$(echo "-b:a" $audioBitRate "-ac" $audioChannels "-ar" $audioSamplingRate)
+	fi
+
 	if [ $videoChromaSubSampling = "NA" ]
 	then
 		#skip chroma and colorspace configuration, input file config will be taken
-		cmdToGenerateVideo=$(echo "ffmpeg -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate "-b:a" $audioBitRate  "output/"$fileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "output/"$fileName)
 	else
-		cmdToGenerateVideo=$(echo "ffmpeg -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate "-b:a" $audioBitRate  "output/"$fileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "output/"$fileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
@@ -359,7 +401,7 @@ generateMedia ()
 			printImageParams
 
 			#Generate the Image files based on the processed input
-			#generateImage
+			generateImage
 			;;
 		"Audio")
 			#Get the Audio parameters from each input field
@@ -374,6 +416,9 @@ generateMedia ()
 		"Video")
 			#Get the Video parameters from each input field
 			getVideoParams
+
+			#Get the Audio parameters for video file
+			getAudioParams
 
 			#Print processed Video parameters
 			printVideoParams
