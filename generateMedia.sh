@@ -30,7 +30,9 @@ mediaHeader=('General Complete name' 'General File Type' 'General Format' 'Gener
 	 'Audio Bit rate mode' 'Audio Bit rate' 'Audio Channel(s)' 'Audio Channel positions'\
 	 'Audio Sampling rate' 'Audio Frame rate' 'Audio Compression mode' 'Audio Stream size'\
 	 'Audio Bit depth' 'Audio Writing library' 'Audio Encoding settings' 'Audio Default' 'Audio Forced'\
-	 'Audio Encoded date' 'Audio Tagged date')
+	 'Audio Encoded date' 'Audio Tagged date' 'Text ID' 'Text Format' 'Text Codec ID'\
+	 'Text Codec ID/Info' 'Text Duration' 'Text Bit rate' 'Text Count of elements' 'Text Stream size'\
+	 'Text Title' 'Text Default' 'Text Forced')
 
 #Check whether the ffmpeg is installed in the system or not?
 which ffmpeg > /dev/null
@@ -96,6 +98,7 @@ mkdir -p output
 #MACRO Definitions (Values are derived from mediaHeader)
 #General Macros
 MINTOSECOND=60
+HOURTOSECOND=3600
 SECONDTOMILLISECOND=0.001
 FILE_NAME=0
 MEDIA_TYPE=1
@@ -134,6 +137,18 @@ AUDIO_FRAME_RATE=63
 AUDIO_COMPRESS_MODE=64
 AUDIO_BIT_DEPTH=66
 
+#Subtitle related macros
+TEXT_ID=73
+TEXT_FORMAT=74
+TEXT_CODEC_ID=75
+TEXT_CODECID_INFO=76
+TEXT_DURATION=77
+TEXT_BITRATE=78
+TEXT_COUNT_OF_ELEMENTS=79
+TEXT_STREAM_SIZE=80
+TEXT_TITLE=81
+TEXT_DEFAULT=82
+TEXT_FORCED=83
 
 #Arrays of meta details, meta headers
 declare mediaData
@@ -176,11 +191,25 @@ imageColorSpace=""
 imageChromaSubSampling=""
 imageCompresMode=""
 
+#Text Parameters
+textID=""
+textFormat=""
+textCodecID=""
+textCodecIDInfo=""
+textDuration=""
+textBitRate=""
+textCountOfElements=""
+textStreamSize=""
+textTitle=""
+textDefault=""
+textForced=""
+
 getVideoParams ()
 {
 	milliseconds=""
 	seconds=""
 	minutes=""
+	hours=""
 	videoDuration=""
 
 	#-c:v "codec name" should be used
@@ -190,7 +219,12 @@ getVideoParams ()
 	videoFormat=${metaMedia[VIDEO_FORMAT]}
 
 	#-t should be used with seconds
-	if [[ ${metaMedia[VIDEO_DURATION]} =~ "min" ]];
+	if [[ ${metaMedia[VIDEO_DURATION]} =~ "h" ]];
+	then
+		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "h" '{print $2}'|awk -F "min" '{print $1}')
+		hours=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
+		videoDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
+	elif [[ ${metaMedia[VIDEO_DURATION]} =~ "min" ]];
 	then
 		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
@@ -225,7 +259,7 @@ getVideoParams ()
 	videoColorSpace=${metaMedia[VIDEO_COLOR_SPACE],,}
 
 	#convert 4:2:2 to 422
-	if [ ${metaMedia[VIDEO_CHROMA_SUBSAMPLING]} = "0" ]
+	if [ ${metaMedia[VIDEO_CHROMA_SUBSAMPLING]} = "0" ];
 	then
 		videoChromaSubSampling="NA"
 	else
@@ -242,6 +276,7 @@ getAudioParams ()
 	seconds=""
 	milliseconds=""
 	minutes=""
+	hours=""
 	audioDuration=""
 
 	if [[ ${metaMedia[AUDIO_DURATION]} = "0" || ${metaMedia[AUDIO_SAMPLING_RATE]} = "0" ]];
@@ -254,9 +289,15 @@ getAudioParams ()
 	fi
 
 	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
+
 	audioFormat=${metaMedia[AUDIO_FORMAT]}
 
-	if [[ ${metaMedia[AUDIO_DURATION]} =~ "min" ]];
+	if [[ ${metaMedia[AUDIO_DURATION]} =~ "h" ]];
+	then
+		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "h" '{print $2}'|awk -F "min" '{print $1}')
+		hours=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
+		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
+	elif [[ ${metaMedia[AUDIO_DURATION]} =~ "min" ]];
 	then
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
@@ -293,6 +334,40 @@ getImageParams ()
 	fi
 
 	imageCompresMode=${metaMedia[IMAGE_COMPRES_MODE]}
+}
+
+getTextParams ()
+{
+	textID=${metaMedia[TEXT_ID]}
+
+	textFormat=${metaMedia[TEXT_FORMAT]}
+
+	textCodecID=${metaMedia[TEXT_CODEC_ID]}
+
+	textCodecIDInfo=${metaMedia[TEXT_CODECID_INFO]}
+
+	if [[ ${metaMedia[TEXT_DURATION]} =~ "h" ]];
+	then
+		minutes=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "h" '{print $2}'|awk -F "min" '{print $1}')
+		hours=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
+		textDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
+	elif [[ ${metaMedia[TEXT_DURATION]} =~ "min" ]];
+	then
+		seconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
+		minutes=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
+		textDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
+	else
+		milliseconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
+		seconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
+		textDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
+	fi
+
+	textBitRate=$(echo ${metaMedia[TEXT_BITRATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
+	textCountOfElements=${metaMedia[TEXT_COUNT_OF_ELEMENTS]}
+	textStreamSize=${metaMedia[TEXT_STREAM_SIZE]}
+	textTitle=${metaMedia[TEXT_TITLE]}
+	textDefault=${metaMedia[TEXT_DEFAULT]}
+	textForced=${metaMedia[TEXT_FORCED]}
 }
 
 printVideoParams ()
@@ -332,6 +407,22 @@ printImageParams ()
 	echo "image BitDepth:" $imageBitDepth
 	echo "image Colorspace:" $imageColorSpace
 	echo "image CompresMode:" $imageCompresMode
+}
+
+printTextParams ()
+{
+	#Printing Text Parameters
+	echo "Text ID:" $textID
+	echo "Text Format:" $textFormat
+	echo "Text Codec ID:" $textCodecID
+	echo "Text Codec ID/Info:" $textCodecIDInfo
+	echo "Text Duration:" $textDuration
+	echo "Text Bit Rate:" $textBitRate
+	echo "Text Count of elements:" $textCountOfElements
+	echo "Text Stream Size:" $textStreamSize
+	echo "Text Title:" $textTitle
+	echo "Text Default:" $textDefault
+	echo "Text Forced:" $textForced
 }
 
 cmdToGenerateImage=""
@@ -417,11 +508,20 @@ generateMedia ()
 			#Get the Video parameters from each input field
 			getVideoParams
 
+			#Print processed Video parameters
+			printVideoParams
+
 			#Get the Audio parameters for video file
 			getAudioParams
 
-			#Print processed Video parameters
-			printVideoParams
+			#Print processed Audio parameters
+			printAudioParams
+
+			#Get the subtitle parameters
+			getTextParams
+
+			#Print processed subtitle parameters
+			printTextParams
 
 			#Generate the video files based on the processed input
 			generateVideo
