@@ -325,7 +325,6 @@ getImageParams ()
 	imageColorSpace=${metaMedia[IMAGE_COLOR_SPACE],,}
 
 	#convert 4:2:2 to 422
-	echo  ${metaMedia[IMAGE_CHROMA_SUBSAMPLING]} "abcd"
 	if [ ${metaMedia[IMAGE_CHROMA_SUBSAMPLING]} = "0" ]
 	then
 		imageChromaSubSampling="NA"
@@ -431,16 +430,33 @@ cmdToGenerateVideo=""
 
 generateImage ()
 {
-	if [ $imageChromaSubSampling = "NA" ]
+	if [ $imageFormat = "Bitmap" ]
 	then
-		#skip chroma and colorspace configuration, input file config will be taken
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
+		if [ $imageBitDepth = "16" ]
+		then
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt rgb565le output/"$fileName)
+		elif [ $imageBitDepth = "16" ]
+		then
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt abgr output/"$fileName)
+		else
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt rgb"$imageBitDepth "output/"$fileName)
+		fi
+	elif [ $imageFormat = "GIF" ]
+	then
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1 output/"$fileName)
 	else
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$fileName)
+		if [ $imageChromaSubSampling = "NA" ]
+		then
+			#skip chroma and colorspace configuration, input file config will be taken
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
+		else
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$fileName)
+		fi
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateImage
 	$cmdToGenerateImage
+	echo "Return value = $?"
 }
 
 generateAudio ()
