@@ -427,31 +427,52 @@ printTextParams ()
 cmdToGenerateImage=""
 cmdToGenerateAudio=""
 cmdToGenerateVideo=""
+declare -A pixFmts=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="rgb24" ["32"]="abgr" ["48"]="rgb48le" ["64"]="rgb64le")
 
 generateImage ()
 {
+	pixFmt=""
+	echo "-pix_fmt" ${pixFmts[$imageBitDepth]} $imageBitDepth
+
 	if [ $imageFormat = "Bitmap" ]
 	then
-		if [ $imageBitDepth = "16" ]
-		then
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt rgb565le output/"$fileName)
-		elif [ $imageBitDepth = "16" ]
-		then
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt abgr output/"$fileName)
-		else
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt rgb"$imageBitDepth "output/"$fileName)
-		fi
+		pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
+
+	# TODO Need to check whether all the cases for GIF is covered
+	# 1) Interlacing
+	# 2) Transparency
+	# 3) Anti-aliasing
+	# 4) Animated
+	# 5) Redundancy
+	# 6) Basic
 	elif [ $imageFormat = "GIF" ]
 	then
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1 output/"$fileName)
-	else
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1 output/"$fileName)
+
+	elif [ $imageFormat = "WebP" ]
+	then
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "output/"$fileName)
+
+	elif [ $imageFormat = "JPEG" ]
+	then
 		if [ $imageChromaSubSampling = "NA" ]
 		then
 			#skip chroma and colorspace configuration, input file config will be taken
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
 		else
 			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$fileName)
 		fi
+
+	elif [ $imageFormat = "PNG" ]
+	then
+		pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
+		echo $pixFmt
+
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
+	else
+		#skipping color space, chroma configurations
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateImage
