@@ -427,16 +427,18 @@ printTextParams ()
 cmdToGenerateImage=""
 cmdToGenerateAudio=""
 cmdToGenerateVideo=""
-declare -A pixFmts=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="rgb24" ["32"]="abgr" ["48"]="rgb48le" ["64"]="rgb64le")
+declare -A pixFmts=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="rgb24" ["32"]="rgba" ["48"]="rgb48le" ["64"]="rgb64le")
 
 generateImage ()
 {
 	pixFmt=""
-	echo "-pix_fmt" ${pixFmts[$imageBitDepth]} $imageBitDepth
 
 	if [ $imageFormat = "Bitmap" ]
 	then
-		pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
+		if [ $imageBitDepth != "0" ]
+		then
+			pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
+		fi
 		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
 
 	# TODO Need to check whether all the cases for GIF is covered
@@ -466,9 +468,10 @@ generateImage ()
 
 	elif [ $imageFormat = "PNG" ]
 	then
-		pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
-		echo $pixFmt
-
+		if [ $imageBitDepth != "0" ]
+		then
+			pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
+		fi
 		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
 	else
 		#skipping color space, chroma configurations
