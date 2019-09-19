@@ -45,6 +45,7 @@ fi
 #function to print usage
 usage ()
 {
+    # TODO Include debug options by using loglevel
     echo "Usage: $0 -m <mediaInfo.csv> -i <Input reference media>"
     echo "eg: $0 -m mediaDetails.csv -i ReferenceVideo.mp4"
     exit 1
@@ -128,7 +129,7 @@ VIDEO_CHROMA_SUBSAMPLING=39
 VIDEO_BIT_DEPTHS=40
 
 #Audio related macros
-AUDIO_FORMAT=52
+AUDIO_FORMAT=53
 AUDIO_DURATION=57
 AUDIO_BIT_RATE=59
 AUDIO_CHANNELS=60
@@ -157,6 +158,7 @@ declare mediaCommand
 
 #General Parameters
 fileName=""
+fileType=""
 
 #Video Parameters
 videoCodecId=""
@@ -483,11 +485,132 @@ generateImage ()
 	echo "Return value = $?"
 }
 
+
+declare -A audioCodecs=( ["mp3"]="-acodec libmp3lame" ["aac"]="-acodec libfdk_aac" )
+# list of Audio codecs supported
+# 3gp
+# aac
+# ac3
+# asf
+# avi
+# dsf
+# flac
+# m2ts
+# m4a
+# m4b
+# MID
+# mkv
+# mp3
+# mp4
+# ogg
+# ra
+# rm
+# rmvb
+# ts
+# wav
+# wma	-- Covers wmadec, wmastddec, wmaprodec, wmalosslessdec
+#
+declare -A audioWavBitRates=( ["1"]="" ["4"]="" ["8"]="" ["16"]="pcm_s16le" ["24"]="pcm_s24le" ["32"]="pcm_s32le" ["64"]="pcm_s64le" )
+
 generateAudio ()
 {
-	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vn" "-r" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration "-b:a" $audioBitRate  "output/"$fileName)
+	audioCodec=""
+
+	if [ $fileType = "mp3" ]
+	then
+		audioCodec="-acodec libmp3lame"
+
+	elif [ $fileType = "wav" ]
+	then
+		audioCodec="-acodec pcm_s16le"
+
+	elif [ $fileType = "aac" ]
+	then
+		audioCodec="-acodec libfdk_aac"
+
+	elif [ $fileType = "3gp" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "ac3" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "asf" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "avi" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "dsf" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "flac" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "m2ts" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "m4a" ]
+	then
+		audioCodec="-acodec libfdk_aac"
+
+	elif [ $fileType = "m4b" ]
+	then
+		audioCodec=$(echo "to be started from here")
+	
+	elif [ $fileType = "mid" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "mkv" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "mp4" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "ogg" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "ra" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "rm" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "rmvb" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "ts" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "wav" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	elif [ $fileType = "wma" ]
+	then
+		audioCodec=$(echo "to be started from here")
+
+	else
+		echo "Invalid audio codec"
+	fi
+
+	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner -loglevel fatal -stream_loop 100 -i " $inputRefMedia "-vn" "-r" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration "-b:a" $audioBitRate $audioCodec "output/"$fileName)
 	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
-	$cmdToGenerateAudio
+#	$cmdToGenerateAudio
 }
 
 generateVideo ()
@@ -520,6 +643,7 @@ generateMedia ()
 
 	#getting the only filename from the the completename
 	fileName=$(basename "${metaMedia[$FILE_NAME]}")
+	fileType=$(echo ${fileName,,}|awk -F "." '{print $NF}')
 	
 	#check the mediatype
 	echo "Input media type:  ${metaMedia[$MEDIA_TYPE]} and name $fileName"
