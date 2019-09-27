@@ -578,7 +578,7 @@ generateAudio ()
 
 	elif [ $fileType = "ogg" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec libvoris"
 
 	elif [ $fileType = "ra" ]
 	then
@@ -596,10 +596,6 @@ generateAudio ()
 	then
 		audioCodec=$(echo "to be started from here")
 
-	elif [ $fileType = "wav" ]
-	then
-		audioCodec=$(echo "to be started from here")
-
 	elif [ $fileType = "wma" ]
 	then
 		audioCodec=$(echo "to be started from here")
@@ -610,7 +606,7 @@ generateAudio ()
 
 	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner -loglevel fatal -stream_loop 100 -i " $inputRefMedia "-vn" "-r" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration "-b:a" $audioBitRate $audioCodec "output/"$fileName)
 	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
-#	$cmdToGenerateAudio
+	$cmdToGenerateAudio
 }
 
 generateVideo ()
