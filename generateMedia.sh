@@ -530,19 +530,19 @@ generateAudio ()
 
 	elif [ $fileType = "3gp" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec amr_nb"
 
 	elif [ $fileType = "ac3" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec ac3"
 
 	elif [ $fileType = "asf" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec wmav2"
 
 	elif [ $fileType = "avi" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec libmp3lame"
 
 	elif [ $fileType = "dsf" ]
 	then
@@ -550,11 +550,11 @@ generateAudio ()
 
 	elif [ $fileType = "flac" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec flac"
 
 	elif [ $fileType = "m2ts" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec mp2"
 
 	elif [ $fileType = "m4a" ]
 	then
@@ -570,11 +570,11 @@ generateAudio ()
 
 	elif [ $fileType = "mkv" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec libvoris"
 
 	elif [ $fileType = "mp4" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec aac"
 
 	elif [ $fileType = "ogg" ]
 	then
@@ -582,11 +582,11 @@ generateAudio ()
 
 	elif [ $fileType = "ra" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec ac3"
 
 	elif [ $fileType = "rm" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec ac3"
 
 	elif [ $fileType = "rmvb" ]
 	then
@@ -594,11 +594,11 @@ generateAudio ()
 
 	elif [ $fileType = "ts" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec mp2"
 
 	elif [ $fileType = "wma" ]
 	then
-		audioCodec=$(echo "to be started from here")
+		audioCodec="-acodec wmav2"
 
 	else
 		echo "Invalid audio codec"
