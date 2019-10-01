@@ -516,7 +516,7 @@ generateAudio ()
 {
 	audioCodec=""
 
-	if [ $fileType = "mp3" ]
+	if [ $fileType = "mp3" || $fileType = "avi" ]
 	then
 		audioCodec="-acodec libmp3lame"
 
@@ -524,7 +524,7 @@ generateAudio ()
 	then
 		audioCodec="-acodec pcm_s16le"
 
-	elif [ $fileType = "aac" ]
+	elif [ $fileType = "aac" || $fileType = "m4a" || $fileType = "m4b" ]
 	then
 		audioCodec="-acodec libfdk_aac"
 
@@ -532,17 +532,9 @@ generateAudio ()
 	then
 		audioCodec="-acodec amr_nb"
 
-	elif [ $fileType = "ac3" ]
-	then
-		audioCodec="-acodec ac3"
-
 	elif [ $fileType = "asf" ]
 	then
 		audioCodec="-acodec wmav2"
-
-	elif [ $fileType = "avi" ]
-	then
-		audioCodec="-acodec libmp3lame"
 
 	elif [ $fileType = "dsf" ]
 	then
@@ -552,23 +544,15 @@ generateAudio ()
 	then
 		audioCodec="-acodec flac"
 
-	elif [ $fileType = "m2ts" ]
+	elif [ $fileType = "m2ts" || $fileType = "ts" ]
 	then
 		audioCodec="-acodec mp2"
 
-	elif [ $fileType = "m4a" ]
-	then
-		audioCodec="-acodec libfdk_aac"
-
-	elif [ $fileType = "m4b" ]
-	then
-		audioCodec=$(echo "to be started from here")
-	
 	elif [ $fileType = "mid" ]
 	then
 		audioCodec=$(echo "to be started from here")
 
-	elif [ $fileType = "mkv" ]
+	elif [ $fileType = "mkv" || $fileType = "ogg" ]
 	then
 		audioCodec="-acodec libvoris"
 
@@ -576,25 +560,13 @@ generateAudio ()
 	then
 		audioCodec="-acodec aac"
 
-	elif [ $fileType = "ogg" ]
-	then
-		audioCodec="-acodec libvoris"
-
-	elif [ $fileType = "ra" ]
-	then
-		audioCodec="-acodec ac3"
-
-	elif [ $fileType = "rm" ]
+	elif [ $fileType = "ra" || $fileType = "rm" || $fileType = "ac3" ]
 	then
 		audioCodec="-acodec ac3"
 
 	elif [ $fileType = "rmvb" ]
 	then
 		audioCodec=$(echo "to be started from here")
-
-	elif [ $fileType = "ts" ]
-	then
-		audioCodec="-acodec mp2"
 
 	elif [ $fileType = "wma" ]
 	then
