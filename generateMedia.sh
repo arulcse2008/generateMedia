@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 #
 #Samples
 # convert from vob to avi with mpeg4 codec supports
@@ -208,11 +208,11 @@ textForced=""
 
 getVideoParams ()
 {
-	milliseconds=""
-	seconds=""
-	minutes=""
-	hours=""
-	videoDuration=""
+	milliseconds="0"
+	seconds="0"
+	minutes="0"
+	hours="0"
+	videoDuration="0"
 
 	#-c:v "codec name" should be used
 	videoCodecId=${metaMedia[VIDEO_CODEC_ID]}
@@ -236,6 +236,7 @@ getVideoParams ()
 		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		videoDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
+	echo "ms $milliseconds s: $seconds ${metaMedia[VIDEO_DURATION]}"
 
 	#figure out the bitrate of the video
 	videoBitRate=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "b/s" '{print $1}')
@@ -275,11 +276,11 @@ getVideoParams ()
 
 getAudioParams ()
 {
-	seconds=""
-	milliseconds=""
-	minutes=""
-	hours=""
-	audioDuration=""
+	seconds="0"
+	milliseconds="0"
+	minutes="0"
+	hours="0"
+	audioDuration="0"
 
 	if [[ ${metaMedia[AUDIO_DURATION]} = "0" || ${metaMedia[AUDIO_SAMPLING_RATE]} = "0" ]];
 	then
@@ -339,6 +340,14 @@ getImageParams ()
 
 getTextParams ()
 {
+	milliseconds="0"
+	seconds="0"
+	minutes="0"
+	hours="0"
+	textDuration="0"
+
+	echo "Text Duration: " ${metaMedia[TEXT_DURATION]}
+
 	textID=${metaMedia[TEXT_ID]}
 
 	textFormat=${metaMedia[TEXT_FORMAT]}
@@ -357,10 +366,13 @@ getTextParams ()
 		seconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
 		textDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
-	else
+	elif [[ ${metaMedia[TEXT_DURATION]} =~ "s" ]];
+	then
 		milliseconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
 		seconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		textDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
+	else
+		textDuration=0
 	fi
 
 	textBitRate=$(echo ${metaMedia[TEXT_BITRATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
@@ -581,6 +593,30 @@ generateAudio ()
 	$cmdToGenerateAudio
 }
 
+declare -A videoCodecs=( ["mp3"]="-acodec libmp3lame" )
+# 3gp
+# asf
+# avi
+# divx
+# f4v
+# flv
+# m2t
+# m2ts
+# m4v
+# mkv
+# mov
+# mp4
+# MPEG
+# mpg
+# rm
+# rmvb
+# srt			// To be covered separately
+# ts
+# vob
+# webm
+# wmv
+
+
 generateVideo ()
 {
 	audioFlags=""
@@ -601,7 +637,7 @@ generateVideo ()
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
-	$cmdToGenerateVideo
+#	$cmdToGenerateVideo
 }
 
 generateMedia ()
