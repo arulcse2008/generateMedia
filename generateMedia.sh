@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 #
 #Samples
 # convert from vob to avi with mpeg4 codec supports
@@ -104,7 +104,8 @@ SECONDTOMILLISECOND=0.001
 FILE_NAME=0
 MEDIA_TYPE=1
 MEDIA_FORMAT=2
-
+KBPSTOBPS=1000
+MBPSTOBPS=1000000
 #Image related macros
 IMAGE_FORMAT=2
 IMAGE_FORMAT_COMPRES=14
@@ -208,11 +209,11 @@ textForced=""
 
 getVideoParams ()
 {
-	milliseconds=""
-	seconds=""
-	minutes=""
-	hours=""
-	videoDuration=""
+	milliseconds="0"
+	seconds="0"
+	minutes="0"
+	hours="0"
+	videoDuration="0"
 
 	#-c:v "codec name" should be used
 	videoCodecId=${metaMedia[VIDEO_CODEC_ID]}
@@ -223,22 +224,43 @@ getVideoParams ()
 	#-t should be used with seconds
 	if [[ ${metaMedia[VIDEO_DURATION]} =~ "h" ]];
 	then
-		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "h" '{print $2}'|awk -F "min" '{print $1}')
+		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "mn" '{print $1}'|awk -F "h" '{print $2}')
 		hours=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
 		videoDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
-	elif [[ ${metaMedia[VIDEO_DURATION]} =~ "min" ]];
+	elif [[ ${metaMedia[VIDEO_DURATION]} =~ "mn" ]];
 	then
-		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
-		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
+		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}'|awk -F "mn" '{print $2}')
+		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "mn" '{print $1}')
 		videoDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	else
 		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
 		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		videoDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
+	echo "ms $milliseconds s: $seconds ${metaMedia[VIDEO_DURATION]}"
+
+
+	if [[ ${metaMedia[VIDEO_BITRATE]} =~ "Kbps" ]];
+	then
+		Kbps=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "Kbps" '{print $1}')
+		videoBitRate=`echo "($Kbps*$KBPSTOBPS)"|bc`
+	
+	elif [[ ${metaMedia[VIDEO_BITRATE]} =~ "Mbps" ]];
+	then
+		Mbps=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "Mbps" '{print $1}')
+		videoBitRate=`echo "($Mbps*$mBPSTOBPS)"|bc`
+	else
+		videoBitRate=0
+	fi
+
+
+
+
+
+
 
 	#figure out the bitrate of the video
-	videoBitRate=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "b/s" '{print $1}')
+	#videoBitRate=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "b/s" '{print $1}')
 
 	#scaling resolutions -vf scale=1920:1080
 	videoWidth=$(echo ${metaMedia[VIDEO_WIDTH]}|awk -F "pixels" '{print $1}' |tr -d ' ')
@@ -248,11 +270,17 @@ getVideoParams ()
 	videoAspectRatio=${metaMedia[VIDEO_ASPECT_RATIO]}
 
 	#-r should be used -r 24 (for 24fps)
-	if [[ ${metaMedia[VIDEO_FRAME_RATE]} =~ "(" ]];
+	if [[ ${metaMedia[VIDEO_FRAME_RATE]} =~ "fps" ]];
 	then
-		videoFrameRate=$(echo ${metaMedia[VIDEO_FRAME_RATE]}|tr -d ' '|awk -F "(" '{print $1}')
+		videoFrameRate1=$(echo ${metaMedia[VIDEO_FRAME_RATE]}|tr -d ' '|awk -F "fps" '{print $1}')
+		if [[ ${videoFrameRate1} =~ "(" ]];
+		then
+			videoFrameRate=$(echo ${videoFrameRate1}|tr -d ' '|awk -F "(" '{print $1}')
+                else
+			videoFrameRate=$videoFrameRate1
+		fi
 	else
-		videoFrameRate=$(echo ${metaMedia[VIDEO_FRAME_RATE]}|tr -d ' '|awk -F "FPS" '{print $1}')
+		videoFrameRate=$(echo ${metaMedia[VIDEO_FRAME_RATE]}|tr -d ' '|awk -F "(" '{print $1}')
 	fi
 
 
@@ -275,11 +303,13 @@ getVideoParams ()
 
 getAudioParams ()
 {
-	seconds=""
-	milliseconds=""
-	minutes=""
-	hours=""
-	audioDuration=""
+	seconds="0"
+	milliseconds="0"
+	minutes="0"
+	hours="0"
+	audioDuration="0"	
+
+        audioBitRate=${metaMedia[AUDIO_BIT_RATE]}
 
 	if [[ ${metaMedia[AUDIO_DURATION]} = "0" || ${metaMedia[AUDIO_SAMPLING_RATE]} = "0" ]];
 	then
@@ -290,19 +320,34 @@ getAudioParams ()
 		audioAvail="YES"
 	fi
 
-	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
+	if [[ ${metaMedia[AUDIO_BIT_RATE]} =~ "Kbps" ]];
+	then
+		Kbps=$(echo ${metaMedia[AUDIO_BIT_RATE]}|tr -d ' '|awk -F "Kbps" '{print $1}')
+		audioBitRate=`echo "($Kbps*1000)"|bc`
+	
+	elif [[ ${metaMedia[AUDIO_BIT_RATE]} =~ "Mbps" ]];
+	then
+		Mbps=$(echo ${metaMedia[AUDIO_BIT_RATE]}|tr -d ' '|awk -F "Mbps" '{print $1}')
+		audioBitRate=`echo "($Mbps*1000*1000)"|bc`
+	else
+		audioBitRate=0
+	fi
+
+
+
+#	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "kbps" '{print $1}'|tr -d ' ')
 
 	audioFormat=${metaMedia[AUDIO_FORMAT]}
 
 	if [[ ${metaMedia[AUDIO_DURATION]} =~ "h" ]];
 	then
-		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "h" '{print $2}'|awk -F "min" '{print $1}')
+		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' 'awk -F "mn" '{print $1}'|awk -F "h" '{print $2}')
 		hours=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
 		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
-	elif [[ ${metaMedia[AUDIO_DURATION]} =~ "min" ]];
+	elif [[ ${metaMedia[AUDIO_DURATION]} =~ "mn" ]];
 	then
-		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
-		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
+		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' 'awk -F "s" '{print $1}'|awk -F "mn" '{print $2}')
+		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "mn" '{print $1}')
 		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	else
 		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
@@ -339,6 +384,14 @@ getImageParams ()
 
 getTextParams ()
 {
+	milliseconds="0"
+	seconds="0"
+	minutes="0"
+	hours="0"
+	textDuration="0"
+
+	echo "Text Duration: " ${metaMedia[TEXT_DURATION]}
+
 	textID=${metaMedia[TEXT_ID]}
 
 	textFormat=${metaMedia[TEXT_FORMAT]}
@@ -357,10 +410,13 @@ getTextParams ()
 		seconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "min" '{print $2}'|awk -F "s" '{print $1}')
 		minutes=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
 		textDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
-	else
+	elif [[ ${metaMedia[TEXT_DURATION]} =~ "s" ]];
+	then
 		milliseconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
 		seconds=$(echo ${metaMedia[TEXT_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		textDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
+	else
+		textDuration=0
 	fi
 
 	textBitRate=$(echo ${metaMedia[TEXT_BITRATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
@@ -516,7 +572,7 @@ generateAudio ()
 {
 	audioCodec=""
 
-	if [ $fileType = "mp3" ]
+	if [[ $fileType = "mp3" || $fileType = "avi" ]]
 	then
 		audioCodec="-acodec libmp3lame"
 
@@ -524,7 +580,7 @@ generateAudio ()
 	then
 		audioCodec="-acodec pcm_s16le"
 
-	elif [ $fileType = "aac" ]
+	elif [[ $fileType = "aac" || $fileType = "m4a" || $fileType = "m4b" ]]
 	then
 		audioCodec="-acodec libfdk_aac"
 
@@ -532,17 +588,9 @@ generateAudio ()
 	then
 		audioCodec="-acodec amr_nb"
 
-	elif [ $fileType = "ac3" ]
-	then
-		audioCodec="-acodec ac3"
-
 	elif [ $fileType = "asf" ]
 	then
 		audioCodec="-acodec wmav2"
-
-	elif [ $fileType = "avi" ]
-	then
-		audioCodec="-acodec libmp3lame"
 
 	elif [ $fileType = "dsf" ]
 	then
@@ -552,23 +600,15 @@ generateAudio ()
 	then
 		audioCodec="-acodec flac"
 
-	elif [ $fileType = "m2ts" ]
+	elif [[ $fileType = "m2ts" || $fileType = "ts" ]]
 	then
 		audioCodec="-acodec mp2"
 
-	elif [ $fileType = "m4a" ]
-	then
-		audioCodec="-acodec libfdk_aac"
-
-	elif [ $fileType = "m4b" ]
-	then
-		audioCodec=$(echo "to be started from here")
-	
 	elif [ $fileType = "mid" ]
 	then
 		audioCodec=$(echo "to be started from here")
 
-	elif [ $fileType = "mkv" ]
+	elif [[ $fileType = "mkv" || $fileType = "ogg" ]]
 	then
 		audioCodec="-acodec libvoris"
 
@@ -576,25 +616,13 @@ generateAudio ()
 	then
 		audioCodec="-acodec aac"
 
-	elif [ $fileType = "ogg" ]
-	then
-		audioCodec="-acodec libvoris"
-
-	elif [ $fileType = "ra" ]
-	then
-		audioCodec="-acodec ac3"
-
-	elif [ $fileType = "rm" ]
+	elif [[ $fileType = "ra" || $fileType = "rm" || $fileType = "ac3" ]]
 	then
 		audioCodec="-acodec ac3"
 
 	elif [ $fileType = "rmvb" ]
 	then
 		audioCodec=$(echo "to be started from here")
-
-	elif [ $fileType = "ts" ]
-	then
-		audioCodec="-acodec mp2"
 
 	elif [ $fileType = "wma" ]
 	then
@@ -609,28 +637,93 @@ generateAudio ()
 	$cmdToGenerateAudio
 }
 
+#declare -A videoCodec=( ["3gp"]="-vcodec libx264" )
+# 3gp
+# asf
+# avi
+# divx
+# f4v
+# flv
+# m2t
+# m2ts
+# m4v
+# mkv
+# mov
+# mp4
+# MPEG
+# mpg
+# rm
+# rmvb
+# srt			// To be covered separately
+# ts
+# vob
+# webm
+# wmv
+declare -A pixFmts=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["12"]="yuv420p" ["16"]="yuv422p" ["24"]="yuv444p " ["32"]="rgba" ["48"]="rgb48le" ["64"]="rgb64le")
 generateVideo ()
 {
+	videoCodec=""
+
+	if [[ $fileType = "3gp" || $fileType = "f4v" || $fileType = "m4v" || $fileType = "mov" || $fileType = "mkv" || $fileType = "mp4" || $fileType = "rmvb" || $fileType = "ts" ]]
+	then
+                videoCodec="-vcodec libx264"   
+
+	elif [[ $fileType = "asf" || $fileType = "wmv" ]]
+	then
+		videoCodec="-vcodec msmpeg4v3"
+
+	elif [ $fileType = "avi" ]
+	then
+		videoCodecs="-vcodec mpeg4"
+
+	elif [ $fileType = "flv" ]
+	then
+		videoCodec="-vcodec flv"
+
+	elif [[ $fileType = "m2t" || $fileType = "m2ts" || $fileType = "vob" ]]
+	then
+		videoCodec="-vcodec mpeg2video"
+
+	elif [ $fileType = "MPEG" ]
+	then
+		videoCodec="-vcodec mpeg1video"
+
+        elif [ $fileType = "rm" ]
+	then
+		videoCodec="-vcodec rv10"
+
+	elif [ $fileType = "webm" ]
+	then
+		videoCodec="-vcodec libvpx-vp9"
+
+	else
+		echo "Invalid video codec"
+	fi
+
 	audioFlags=""
 	#if the given meta data doesn't have an audio streaming, remove audio stream while generating video
 	if [ $audioAvail = "NO" ]
 	then
 		audioFlags="-an"
 	else
-		audioFlags=$(echo "-b:a" $audioBitRate "-ac" $audioChannels "-ar" $audioSamplingRate)
+		audioFlags=$(echo "-b:a" $audioBitRate "-ac" $audioChannels)
 	fi
+
 
 	if [ $videoChromaSubSampling = "NA" ]
 	then
 		#skip chroma and colorspace configuration, input file config will be taken
-		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "output/"$fileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner -stream_loop 100 -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$fileName)
 	else
-		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "output/"$fileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner -stream_loop 100 -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$fileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
 	$cmdToGenerateVideo
+
 }
+
+
 
 generateMedia ()
 {
