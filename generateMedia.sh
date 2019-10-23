@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 #
 #Samples
 # convert from vob to avi with mpeg4 codec supports
@@ -183,6 +183,7 @@ audioChannels=""
 audioSamplingRate=""
 audioBitDepth=""
 audioCompresMode=""
+audioBitRateFlags=""
 
 #Image Parameters
 imageFormat=""
@@ -224,13 +225,13 @@ getVideoParams ()
 	#-t should be used with seconds
 	if [[ ${metaMedia[VIDEO_DURATION]} =~ "h" ]];
 	then
-		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "mn" '{print $1}'|awk -F "h" '{print $2}')
+		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}'|awk -F "h" '{print $2}')
 		hours=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
 		videoDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
-	elif [[ ${metaMedia[VIDEO_DURATION]} =~ "mn" ]];
+	elif [[ ${metaMedia[VIDEO_DURATION]} =~ "min" ]];
 	then
-		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}'|awk -F "mn" '{print $2}')
-		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "mn" '{print $1}')
+		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}'|awk -F "min" '{print $2}')
+		minutes=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
 		videoDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	else
 		milliseconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
@@ -297,8 +298,6 @@ getVideoParams ()
 	fi
 
 	videoBitDepth=$(echo ${metaMedia[VIDEO_BIT_DEPTHS]}|awk -F "bits" '{print $1}'|tr -d ' ')
-
-	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "b/s" '{print $1}'|tr -d ' ')
 }
 
 getAudioParams ()
@@ -332,22 +331,25 @@ getAudioParams ()
 	else
 		audioBitRate=0
 	fi
-
-
-
-#	audioBitRate=$(echo ${metaMedia[AUDIO_BIT_RATE]}|awk -F "kbps" '{print $1}'|tr -d ' ')
+	
+	if [[ $audioBitRate = "0" ]]
+	then
+		audioBitRateFlags=" "
+	else
+		audioBitRateFlags="-b:a $audioBitRate"
+	fi
 
 	audioFormat=${metaMedia[AUDIO_FORMAT]}
 
 	if [[ ${metaMedia[AUDIO_DURATION]} =~ "h" ]];
 	then
-		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' 'awk -F "mn" '{print $1}'|awk -F "h" '{print $2}')
+		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}'|awk -F "h" '{print $2}')
 		hours=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "h" '{print $1}')
 		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+($hours*$HOURTOSECOND)"|bc`
-	elif [[ ${metaMedia[AUDIO_DURATION]} =~ "mn" ]];
+	elif [[ ${metaMedia[AUDIO_DURATION]} =~ "min" ]];
 	then
-		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' 'awk -F "s" '{print $1}'|awk -F "mn" '{print $2}')
-		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "mn" '{print $1}')
+		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}'|awk -F "min" '{print $2}')
+		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
 		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	else
 		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
@@ -355,8 +357,11 @@ getAudioParams ()
 		audioDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
 
+
 	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|awk -F "channel" '{print $1}'|tr -d ' ')
-	audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE]}|awk -F "kHz" '{print $1}'|tr -d ' ')*1000"|bc`
+
+	audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|awk -F "khz" '{print $1}'|tr -d ' ')*1000"|bc`
+
 	audioBitDepth=$(echo ${metaMedia[AUDIO_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
 }
 
@@ -497,7 +502,7 @@ generateImage ()
 		then
 			pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
 		fi
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
 
 	# TODO Need to check whether all the cases for GIF is covered
 	# 1) Interlacing
@@ -508,20 +513,20 @@ generateImage ()
 	# 6) Basic
 	elif [ $imageFormat = "GIF" ]
 	then
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1 output/"$fileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1 output/"$fileName)
 
 	elif [ $imageFormat = "WebP" ]
 	then
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "output/"$fileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "output/"$fileName)
 
 	elif [ $imageFormat = "JPEG" ]
 	then
 		if [ $imageChromaSubSampling = "NA" ]
 		then
 			#skip chroma and colorspace configuration, input file config will be taken
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
 		else
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$fileName)
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$fileName)
 		fi
 
 	elif [ $imageFormat = "PNG" ]
@@ -530,10 +535,10 @@ generateImage ()
 		then
 			pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
 		fi
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$fileName)
 	else
 		#skipping color space, chroma configurations
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner -loglevel fatal -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$fileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateImage
@@ -610,7 +615,7 @@ generateAudio ()
 
 	elif [[ $fileType = "mkv" || $fileType = "ogg" ]]
 	then
-		audioCodec="-acodec libvoris"
+		audioCodec="-acodec libvorbis"
 
 	elif [ $fileType = "mp4" ]
 	then
@@ -632,7 +637,7 @@ generateAudio ()
 		echo "Invalid audio codec"
 	fi
 
-	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner -loglevel fatal -stream_loop 100 -i " $inputRefMedia "-vn" "-r" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration "-b:a" $audioBitRate $audioCodec "output/"$fileName)
+	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner  -stream_loop 100 -i " $inputRefMedia "-vn" "-ar" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration $audioBitRateFlags $audioCodec "output/"$fileName)
 	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
 	$cmdToGenerateAudio
 }
@@ -713,9 +718,9 @@ generateVideo ()
 	if [ $videoChromaSubSampling = "NA" ]
 	then
 		#skip chroma and colorspace configuration, input file config will be taken
-		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner -stream_loop 100 -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$fileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner  -stream_loop 100  -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$fileName)
 	else
-		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner -stream_loop 100 -loglevel fatal -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$fileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner  -stream_loop 100  -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$fileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
