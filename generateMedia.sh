@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 #
 #Samples
 # convert from vob to avi with mpeg4 codec supports
@@ -238,7 +238,6 @@ getVideoParams ()
 		seconds=$(echo ${metaMedia[VIDEO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		videoDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
-	echo "ms $milliseconds s: $seconds ${metaMedia[VIDEO_DURATION]}"
 
 
 	if [[ ${metaMedia[VIDEO_BITRATE]} =~ "Kbps" ]];
@@ -302,7 +301,7 @@ getVideoParams ()
 
 getAudioParams ()
 {
-	seconds="0"
+	seconds="0.0"
 	milliseconds="0"
 	minutes="0"
 	hours="0"
@@ -356,7 +355,6 @@ getAudioParams ()
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		audioDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
-
 
 	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|awk -F "channel" '{print $1}'|tr -d ' ')
 
@@ -573,6 +571,56 @@ declare -A audioCodecs=( ["mp3"]="-acodec libmp3lame" ["aac"]="-acodec libfdk_aa
 #
 declare -A audioWavBitRates=( ["1"]="" ["4"]="" ["8"]="" ["16"]="pcm_s16le" ["24"]="pcm_s24le" ["32"]="pcm_s32le" ["64"]="pcm_s64le" )
 
+
+
+# Audio Formats and its codecs 
+# AAC				- libfdk_aac	
+# AC-3				- 
+# ACELP				-
+# ADPCM				-
+# ALAC				-
+# amf0				-
+# AMR				-
+# APE				-
+# ARIB STD B24/B37		-
+# ASS				-
+# Atmos / TrueHD		-
+# Atrac				-
+# Audio Format			-
+# Cooker			-
+# DivX Subtitle			-
+# DTS				- dca
+# E-AC-3			-
+# EIA-708			-
+# Extensible			-
+# FLAC				- flac
+# MIDI				-
+# MPEG Audio			-
+# Music Coder			-
+# Nellymoser			-
+# Opus				-
+# PCM				-
+# PGS				-	HDMV Presentation Graphic Stream subtitles (No encoder) decoder - pgssub
+# QuickTime TC			-
+# RLE				-
+# RTP				-
+# Speex				-
+# System			-
+# System Core			-	libfdk_aac (As audio format point to AAC)
+# Timed Text			-
+# TrueHD			-	
+# Truespeech			-	no encoder supported
+# UTF-8				-	Advanced Audio Codec	(stext or text) for encoding
+#					Audio Coding 3		(stext or text)
+
+# Vorbis			-	libvorbis
+# WMA				-	D.A..S wmalossless          Windows Media Audio Lossless
+#					D.A.L. wmapro               Windows Media Audio 9 Professional
+#					DEA.L. wmav1                Windows Media Audio 1
+#					DEA.L. wmav2                Windows Media Audio 2
+#					D.A.L. wmavoice             Windows Media Audio Voice
+
+
 generateAudio ()
 {
 	audioCodec=""
@@ -637,9 +685,9 @@ generateAudio ()
 		echo "Invalid audio codec"
 	fi
 
-	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner  -stream_loop 100 -i " $inputRefMedia "-vn" "-ar" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration $audioBitRateFlags $audioCodec "output/"$fileName)
+	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner  -stream_loop 100 -loglevel fatal -i " $inputRefMedia "-vn" "-ar" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration $audioBitRateFlags $audioCodec "output/"$fileName)
 	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
-	$cmdToGenerateAudio
+#	$cmdToGenerateAudio
 }
 
 #declare -A videoCodec=( ["3gp"]="-vcodec libx264" )
@@ -711,9 +759,8 @@ generateVideo ()
 	then
 		audioFlags="-an"
 	else
-		audioFlags=$(echo "-b:a" $audioBitRate "-ac" $audioChannels)
+		audioFlags=$(echo "-ac" $audioChannels "-ar" $audioSamplingRate "-ac" $audioChannels $audioBitRateFlags $audioCodec "output/"$fileName)
 	fi
-
 
 	if [ $videoChromaSubSampling = "NA" ]
 	then
@@ -724,7 +771,7 @@ generateVideo ()
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
-	$cmdToGenerateVideo
+#	$cmdToGenerateVideo
 
 }
 
