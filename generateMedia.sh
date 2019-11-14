@@ -209,6 +209,61 @@ textTitle=""
 textDefault=""
 textForced=""
 
+initializeVideoParams ()
+{
+	videoCodecId=""
+	videoFormat=""
+	videoDuration=""
+	videoBitRate=""
+	videoWidth=""
+	videoHeight=""
+	videoAspectRatio=""
+	videoFrameRate=""
+	videoColorSpace=""
+	videoBitDepth=""
+	videoChromaSubSampling=""
+	audioAvail=""
+}
+
+initializeAudioParams ()
+{
+	audioBitRate=""
+	audioFormat=""
+	audioDuration=""
+	audioChannels=""
+	audioSamplingRate=""
+	audioBitDepth=""
+	audioCompresMode=""
+	audioBitRateFlags=""
+}
+
+initializeImageParams ()
+{
+	imageFormat=""
+	imageFormatCompres=""
+	imageWidth=""
+	imageHeight=""
+	imageBitDepth=""
+	imageColorSpace=""
+	imageChromaSubSampling=""
+	imageCompresMode=""
+}
+
+initializeTextParams ()
+{
+	textID=""
+	textFormat=""
+	textCodecID=""
+	textCodecIDInfo=""
+	textDuration=""
+	textBitRate=""
+	textCountOfElements=""
+	textStreamSize=""
+	textTitle=""
+	textDefault=""
+	textForced=""
+}
+
 getVideoParams ()
 {
 	milliseconds="0"
@@ -351,6 +406,13 @@ getAudioParams ()
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}'|awk -F "min" '{print $2}')
 		minutes=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "min" '{print $1}')
 		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
+	elif [[ $(echo ${metaMedia[AUDIO_DURATION]} | tr -cd 's' |wc -c) = 1 ]];
+	then
+		set -x
+		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}')
+		echo "ms=" $milliseconds
+		audioDuration=$(echo |awk '{print '$milliseconds'*'$SECONDTOMILLISECOND'}')
+		set +x
 	else
 		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
@@ -359,7 +421,12 @@ getAudioParams ()
 
 	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|awk -F "channel" '{print $1}'|tr -d ' ')
 
-	audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|awk -F "khz" '{print $1}'|tr -d ' ')*1000"|bc`
+	if [[ ${metaMedia[AUDIO_SAMPLING_RATE],,} =~ "khz" ]];
+	then
+		audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|awk -F "khz" '{print $1}'|tr -d ' ')*1000"|bc`
+	else
+		audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|awk -F "hz" '{print $1}'|tr -d ' ')"`
+	fi
 
 	audioBitDepth=$(echo ${metaMedia[AUDIO_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
 }
@@ -489,7 +556,9 @@ printTextParams ()
 cmdToGenerateImage=""
 cmdToGenerateAudio=""
 cmdToGenerateVideo=""
-declare -A pixFmts=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="rgb24" ["32"]="rgba" ["48"]="rgb48le" ["64"]="rgb64le")
+declare -A pixFmtsPng=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="rgb24" ["32"]="rgba" ["48"]="rgb48le" ["64"]="rgb64le")
+declare -A pixFmtsJpeg=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="rgb24" ["32"]="rgba" ["48"]="rgb48le" ["64"]="rgb64le")
+declare -A pixFmtsBmp=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["16"]="rgb565le" ["24"]="bgr24" ["32"]="rgba" ["64"]="rgb64le")
 
 generateImage ()
 {
@@ -776,8 +845,6 @@ generateVideo ()
 
 }
 
-
-
 generateMedia ()
 {
 	#Collect all the elements from the file and take action accordingly
@@ -797,6 +864,9 @@ generateMedia ()
 	echo "Input media type:  ${metaMedia[$MEDIA_TYPE]} and name $fileName"
 	case ${metaMedia[$MEDIA_TYPE]} in
 		"Image")
+			#initialize all the image parameters
+			initializeImageParams
+
 			#Get the Image parameters from each input field
 			getImageParams
 
@@ -807,6 +877,9 @@ generateMedia ()
 			generateImage
 			;;
 		"Audio")
+			#initialize all the audio parameters
+			initializeAudioParams
+
 			#Get the Audio parameters from each input field
 			getAudioParams
 
@@ -817,6 +890,11 @@ generateMedia ()
 			generateAudio
 			;;
 		"Video")
+			#initialize all the video & audio parameters
+			initializeVideoParams
+			initializeAudioParams
+			initializeTextParams
+
 			#Get the Video parameters from each input field
 			getVideoParams
 
