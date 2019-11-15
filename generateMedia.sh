@@ -364,12 +364,13 @@ getAudioParams ()
 	audioDuration="0"	
 
         audioBitRate=${metaMedia[AUDIO_BIT_RATE]}
+	echo "AD ASR" ${metaMedia[AUDIO_DURATION]} ${metaMedia[AUDIO_SAMPLING_RATE]}
 
 	if [[ ${metaMedia[AUDIO_DURATION]} = "0" || ${metaMedia[AUDIO_SAMPLING_RATE]} = "0" ]];
 	then
 		audioAvail="NO"
 		echo "No Audio data"
-		return
+#		return
 	else
 		audioAvail="YES"
 	fi
@@ -408,24 +409,22 @@ getAudioParams ()
 		audioDuration=`echo "scale=1; ($minutes*$MINTOSECOND)+$seconds"|bc`
 	elif [[ $(echo ${metaMedia[AUDIO_DURATION]} | tr -cd 's' |wc -c) = 1 ]];
 	then
-		set -x
 		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}')
 		echo "ms=" $milliseconds
 		audioDuration=$(echo |awk '{print '$milliseconds'*'$SECONDTOMILLISECOND'}')
-		set +x
 	else
 		milliseconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "ms" '{print $1}'|awk -F "s" '{print $2}')
 		seconds=$(echo ${metaMedia[AUDIO_DURATION]}|tr -d ' '|awk -F "s" '{print $1}')
 		audioDuration=`echo "scale=3; $seconds+($milliseconds*$SECONDTOMILLISECOND)"|bc`
 	fi
 
-	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|awk -F "channel" '{print $1}'|tr -d ' ')
+	audioChannels=$(echo ${metaMedia[AUDIO_CHANNELS]}|tr -d ' '|awk -F "channel" '{print $1}')
 
 	if [[ ${metaMedia[AUDIO_SAMPLING_RATE],,} =~ "khz" ]];
 	then
-		audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|awk -F "khz" '{print $1}'|tr -d ' ')*1000"|bc`
+		audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|tr -d ' '|awk -F "khz" '{print $1}')*1000"|bc`
 	else
-		audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|awk -F "hz" '{print $1}'|tr -d ' ')"`
+		audioSamplingRate=`echo "$(echo ${metaMedia[AUDIO_SAMPLING_RATE],,}|tr -d ' '|awk -F "hz" '{print $1}')"`
 	fi
 
 	audioBitDepth=$(echo ${metaMedia[AUDIO_BIT_DEPTH]}|awk -F "bits" '{print $1}'|tr -d ' ')
@@ -699,6 +698,10 @@ generateAudio ()
 	then
 		audioCodec="-acodec libmp3lame"
 
+	elif [[ $fileType = "wav" || $audioBitDepth = "8" ]]
+	then
+		audioCodec="-acodec pcm_u8"
+
 	elif [ $fileType = "wav" ]
 	then
 		audioCodec="-acodec pcm_s16le"
@@ -829,7 +832,7 @@ generateVideo ()
 	then
 		audioFlags="-an"
 	else
-		audioFlags=$(echo "-ac" $audioChannels "-ar" $audioSamplingRate "-ac" $audioChannels $audioBitRateFlags $audioCodec "output/"$absoluteFileName)
+		audioFlags=$(echo "-ac" $audioChannels "-ar" $audioSamplingRate $audioBitRateFlags $audioCodec "output/"$absoluteFileName)
 	fi
 
 	if [ $videoChromaSubSampling = "NA" ]
