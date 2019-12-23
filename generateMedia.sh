@@ -131,6 +131,7 @@ VIDEO_BIT_DEPTHS=40
 
 #Audio related macros
 AUDIO_FORMAT=53
+AUDIO_MEDIA_FORMAT=55
 AUDIO_DURATION=57
 AUDIO_BIT_RATE=59
 AUDIO_CHANNELS=60
@@ -304,15 +305,10 @@ getVideoParams ()
 	elif [[ ${metaMedia[VIDEO_BITRATE]} =~ "Mbps" ]];
 	then
 		Mbps=$(echo ${metaMedia[VIDEO_BITRATE]}|tr -d ' '|awk -F "Mbps" '{print $1}')
-		videoBitRate=`echo "($Mbps*$mBPSTOBPS)"|bc`
+		videoBitRate=`echo "($Mbps*$MBPSTOBPS)"|bc`
 	else
 		videoBitRate=0
 	fi
-
-
-
-
-
 
 
 	#figure out the bitrate of the video
@@ -362,9 +358,6 @@ getAudioParams ()
 	minutes="0"
 	hours="0"
 	audioDuration="0"	
-
-        audioBitRate=${metaMedia[AUDIO_BIT_RATE]}
-	echo "AD ASR" ${metaMedia[AUDIO_DURATION]} ${metaMedia[AUDIO_SAMPLING_RATE]}
 
 	if [[ ${metaMedia[AUDIO_DURATION]} = "0" || ${metaMedia[AUDIO_SAMPLING_RATE]} = "0" ]];
 	then
@@ -569,7 +562,7 @@ generateImage ()
 		then
 			pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
 		fi
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$absoluteFileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt $absoluteFileName)
 
 	# TODO Need to check whether all the cases for GIF is covered
 	# 1) Interlacing
@@ -580,20 +573,20 @@ generateImage ()
 	# 6) Basic
 	elif [ $imageFormat = "GIF" ]
 	then
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1 output/"$absoluteFileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-t 1" $absoluteFileName)
 
 	elif [ $imageFormat = "WebP" ]
 	then
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "output/"$absoluteFileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia $absoluteFileName)
 
 	elif [ $imageFormat = "JPEG" ]
 	then
 		if [ $imageChromaSubSampling = "NA" ]
 		then
 			#skip chroma and colorspace configuration, input file config will be taken
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$absoluteFileName)
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $absoluteFileName)
 		else
-			cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" "output/"$absoluteFileName)
+			cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "-pix_fmt "$imageColorSpace$imageChromaSubSampling"p" $absoluteFileName)
 		fi
 
 	elif [ $imageFormat = "PNG" ]
@@ -602,10 +595,10 @@ generateImage ()
 		then
 			pixFmt=$(echo "-pix_fmt" ${pixFmts[$imageBitDepth]})
 		fi
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt "output/"$absoluteFileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $pixFmt $absoluteFileName)
 	else
 		#skipping color space, chroma configurations
-		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight "output/"$absoluteFileName)
+		cmdToGenerateImage=$(echo "ffmpeg -hide_banner  -i" $inputRefMedia "-vf scale="$imageWidth":"$imageHeight $absoluteFileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateImage
@@ -689,7 +682,6 @@ declare -A audioWavBitRates=( ["1"]="" ["4"]="" ["8"]="" ["16"]="pcm_s16le" ["24
 #					DEA.L. wmav2                Windows Media Audio 2
 #					D.A.L. wmavoice             Windows Media Audio Voice
 
-
 generateAudio ()
 {
 	audioCodec=""
@@ -706,7 +698,7 @@ generateAudio ()
 	then
 		audioCodec="-acodec pcm_s16le"
 
-	elif [[ $fileType = "aac" || $fileType = "m4a" || $fileType = "m4b" ]]
+	elif [[ $fileType = "m4a" || $fileType = "m4b" ]]
 	then
 		audioCodec="-acodec libfdk_aac"
 
@@ -754,11 +746,43 @@ generateAudio ()
 	then
 		audioCodec="-acodec wmav2"
 
+	elif [[ $fileType = "aac" ]]
+	then
+		#audioCodec="-acodec libfdk_aac -profile:a"
+		cmdToIntermediateFile=$(echo "ffmpeg -hide_banner -stream_loop 100 " $inputRefMedia "-vn" "-t" $audioDuration $absoluteFileName)
+		echo "executing intermediate cmd:" $cmdToIntermediateFile
+
+		if [[ ${metaMedia[AUDIO_MEDIA_FORMAT]} =~ "HE-AAC" ]];
+		then
+			profile="-p5"
+		elif [[ ${metaMedia[AUDIO_MEDIA_FORMAT]} =~ "HE-AAC v2" ]];
+		then
+			profile="-p29"
+		else
+			profile="-p2"
+		fi
+
+		if [[ ${metaMedia[MEDIA_FORMAT]} =~ "ADIF" ]];
+		then
+			transportFormat="-f1"
+		elif [[ ${metaMedia[MEDIA_FORMAT]} =~ "ADTS" ]];
+		then
+			transportFormat="-f2"
+		else
+			transportFormat="-f0"
+		fi
+
+					 fdkaac -p2 -m 0 -b 128000 -w 44100 -f1 temp.wav -o output.aac
+		cmdToGenerateAAC=$(echo "fdkaac $profile -b $audioBitRate -w" $audioSamplingRate $transportFormat "temp.wav -o $absoluteFileName")
+		$cmdToGenerateAAC
+		echo "executing intermediate cmd:" $cmdToGenerateAAC
+		return
+
 	else
 		echo "Invalid audio codec"
 	fi
 
-	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner  -stream_loop 100 -loglevel fatal -i " $inputRefMedia "-vn" "-ar" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration $audioBitRateFlags $audioCodec "output/"$absoluteFileName)
+	cmdToGenerateAudio=$(echo "ffmpeg -hide_banner  -stream_loop 100 -loglevel fatal -i " $inputRefMedia "-vn" "-ar" $audioSamplingRate "-ac" $audioChannels "-t" $audioDuration $audioBitRateFlags $audioCodec $absoluteFileName)
 	echo "executing ffmpeg cmd:" $cmdToGenerateAudio
 #	$cmdToGenerateAudio
 }
@@ -800,7 +824,7 @@ generateVideo ()
 
 	elif [ $fileType = "avi" ]
 	then
-		videoCodecs="-vcodec mpeg4"
+		videoCodec="-vcodec mpeg4"
 
 	elif [ $fileType = "flv" ]
 	then
@@ -832,15 +856,15 @@ generateVideo ()
 	then
 		audioFlags="-an"
 	else
-		audioFlags=$(echo "-ac" $audioChannels "-ar" $audioSamplingRate $audioBitRateFlags $audioCodec "output/"$absoluteFileName)
+		audioFlags=$(echo "-ac" $audioChannels "-ar" $audioSamplingRate $audioBitRateFlags $audioCodec )
 	fi
 
 	if [ $videoChromaSubSampling = "NA" ]
 	then
 		#skip chroma and colorspace configuration, input file config will be taken
-		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner  -stream_loop 100  -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$absoluteFileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -stream_loop 100 -i" $inputRefMedia -map_metadata -1 $videoCodec "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "-y" $absoluteFileName)
 	else
-		cmdToGenerateVideo=$(echo "ffmpeg -nostdin -hide_banner  -stream_loop 100  -i" $inputRefMedia "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags $videoCodec "output/"$absoluteFileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -stream_loop 100 -i" $inputRefMedia -map_metadata -1 $videoCodec "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "-y" $absoluteFileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
@@ -861,7 +885,7 @@ generateMedia ()
 	echo $filePath
 
 	# create the same folder for the given file
-	mkdir -p output/$filePath
+	mkdir -p $filePath
 	
 	#check the mediatype
 	echo "Input media type:  ${metaMedia[$MEDIA_TYPE]} and name $fileName"
