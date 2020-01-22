@@ -128,6 +128,8 @@ VIDEO_FRAME_RATE=37
 VIDEO_COLOR_SPACE=38
 VIDEO_CHROMA_SUBSAMPLING=39
 VIDEO_BIT_DEPTHS=40
+VIDEO_SCAN_TYPE=41
+VIDEO_WRITING_LIBRARY=44
 
 #Audio related macros
 AUDIO_FORMAT=53
@@ -166,6 +168,7 @@ filePath=""
 #Video Parameters
 videoCodecId=""
 videoFormat=""
+videoWritingLibrary=""
 videoDuration=""
 videoBitRate=""
 videoWidth=""
@@ -214,6 +217,7 @@ initializeVideoParams ()
 {
 	videoCodecId=""
 	videoFormat=""
+	videoWritingLibrary=""
 	videoDuration=""
 	videoBitRate=""
 	videoWidth=""
@@ -223,6 +227,7 @@ initializeVideoParams ()
 	videoColorSpace=""
 	videoBitDepth=""
 	videoChromaSubSampling=""
+	videoInterlace=""
 	audioAvail=""
 }
 
@@ -278,6 +283,8 @@ getVideoParams ()
 
 	#videoFormat -f "avc" should be used
 	videoFormat=${metaMedia[VIDEO_FORMAT]}
+
+	videoWritingLibrary=${metaMedia[VIDEO_WRITING_LIBRARY]}
 
 	#-t should be used with seconds
 	if [[ ${metaMedia[VIDEO_DURATION]} =~ "h" ]];
@@ -340,6 +347,13 @@ getVideoParams ()
 	#assign only lower case for yuv
 	videoColorSpace=${metaMedia[VIDEO_COLOR_SPACE],,}
 
+	if [ ${metaMedia[VIDEO_SCAN_TYPE]} = "Progressive" ];
+	then
+		videoInterlace=""
+	else
+		videoInterlace="-flags +ildct"
+	fi
+
 	#convert 4:2:2 to 422
 	if [ ${metaMedia[VIDEO_CHROMA_SUBSAMPLING]} = "0" ];
 	then
@@ -363,7 +377,7 @@ getAudioParams ()
 	then
 		audioAvail="NO"
 		echo "No Audio data"
-#		return
+		return
 	else
 		audioAvail="YES"
 	fi
@@ -388,7 +402,6 @@ getAudioParams ()
 		audioBitRateFlags="-b:a $audioBitRate"
 	fi
 
-	audioFormat=${metaMedia[AUDIO_FORMAT]}
 
 	if [[ ${metaMedia[AUDIO_DURATION]} =~ "h" ]];
 	then
@@ -495,6 +508,7 @@ printVideoParams ()
 	echo "Video parameters"
 	echo "codect id:" $videoCodecId
 	echo "videoFormat" $videoFormat
+	echo "videoWritingLibrary" $videoWritingLibrary
 	echo "duration:" $videoDuration
 	echo "bitrate:" $videoBitRate
 	echo "Resolution:" $videoWidth"x"$videoHeight 
@@ -504,6 +518,7 @@ printVideoParams ()
 	# TODO 10 bit videos are not supported
 	echo "Colorspace:" $videoColorSpace
 	echo "chromasubsampling:" $videoChromaSubSampling
+	echo "Interlace:" $videoInterlace
 }
 
 printAudioParams ()
@@ -772,7 +787,6 @@ generateAudio ()
 			transportFormat="-f0"
 		fi
 
-					 fdkaac -p2 -m 0 -b 128000 -w 44100 -f1 temp.wav -o output.aac
 		cmdToGenerateAAC=$(echo "fdkaac $profile -b $audioBitRate -w" $audioSamplingRate $transportFormat "temp.wav -o $absoluteFileName")
 		$cmdToGenerateAAC
 		echo "executing intermediate cmd:" $cmdToGenerateAAC
@@ -813,10 +827,23 @@ declare -A pixFmts=( ["1"]="monow" ["4"]="rgb4" ["8"]="rgb8" ["12"]="yuv420p" ["
 generateVideo ()
 {
 	videoCodec=""
+	audioCodec=""
 
-	if [[ $fileType = "3gp" || $fileType = "f4v" || $fileType = "m4v" || $fileType = "mov" || $fileType = "mkv" || $fileType = "mp4" || $fileType = "rmvb" || $fileType = "ts" ]]
+	if [[ $videoWritingLibrary =~ "x265" ]]
 	then
-                videoCodec="-vcodec libx264"   
+                videoCodec="-vcodec libx265"
+
+	elif [[ $videoWritingLibrary =~ "x264" ]]
+	then
+                videoCodec="-vcodec libx264"
+
+	elif [[ $videoWritingLibrary =~ "x263" ]]
+	then
+                videoCodec="-vcodec h263"
+
+	elif [[ $fileType = "3gp" || $fileType = "f4v" || $fileType = "m4v" || $fileType = "mov" || $fileType = "mkv" || $fileType = "mp4" || $fileType = "rmvb" ]]
+	then
+                videoCodec="-vcodec libx264"
 
 	elif [[ $fileType = "asf" || $fileType = "wmv" ]]
 	then
@@ -830,7 +857,7 @@ generateVideo ()
 	then
 		videoCodec="-vcodec flv"
 
-	elif [[ $fileType = "m2t" || $fileType = "m2ts" || $fileType = "vob" ]]
+	elif [[ $fileType = "m2t" || $fileType = "m2ts" || $fileType = "vob" || $fileType = "mpg" || $fileType = "ts" ]]
 	then
 		videoCodec="-vcodec mpeg2video"
 
@@ -850,6 +877,30 @@ generateVideo ()
 		echo "Invalid video codec"
 	fi
 
+	audioFormat=${metaMedia[AUDIO_FORMAT]}
+
+	if [[ $audioFormat = "MPEG Audio" ]]
+	then
+		audioCodec="-acodec libmp3lame"
+	elif [[ $audioFormat = "PCM" && $audioBitDepth = "8" ]]
+	then
+		audioCodec="-acodec pcm_u8"
+	elif [[ $audioFormat = "PCM" && $audioBitDepth = "16" ]]
+	then
+		audioCodec="-acodec pcm_s16le"
+	elif [[ $audioFormat = "AC-3" ]]
+	then
+		audioCodec="-acodec ac3"
+	elif [[ $audioFormat = "E-AC-3" ]]
+	then
+		audioCodec="-acodec eac3"
+	elif [[ $audioFormat = "MPEG AAC" ]]
+	then
+		audioCodec="-acodec aac"
+	else
+		audioCodec="-acodec invalid"
+	fi
+
 	audioFlags=""
 	#if the given meta data doesn't have an audio streaming, remove audio stream while generating video
 	if [ $audioAvail = "NO" ]
@@ -862,9 +913,9 @@ generateVideo ()
 	if [ $videoChromaSubSampling = "NA" ]
 	then
 		#skip chroma and colorspace configuration, input file config will be taken
-		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -stream_loop 100 -i" $inputRefMedia -map_metadata -1 $videoCodec "-vf scale="$videoWidth":"$videoHeight "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "-y" $absoluteFileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -stream_loop 100 -i" $inputRefMedia -map_metadata -1 -map 0:v:0 -map 0:a:0 $videoCodec "-vf scale="$videoWidth":"$videoHeight $videoInterlace "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate "-minrate:v" $videoBitRate "-maxrate:v" $videoBitRate "-bufsize:v" $videoBitRate $audioFlags "-y" $absoluteFileName)
 	else
-		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -stream_loop 100 -i" $inputRefMedia -map_metadata -1 $videoCodec "-vf scale="$videoWidth":"$videoHeight "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate $audioFlags "-y" $absoluteFileName)
+		cmdToGenerateVideo=$(echo "ffmpeg -hide_banner -stream_loop 100 -i" $inputRefMedia -map_metadata -1 -map 0:v:0 -map 0:a:0 $videoCodec "-vf scale="$videoWidth":"$videoHeight $videoInterlace "-pix_fmt "$videoColorSpace$videoChromaSubSampling"p" "-r" $videoFrameRate "-aspect" $videoAspectRatio "-t" $videoDuration "-b:v" $videoBitRate "-minrate:v" $videoBitRate "-maxrate:v" $videoBitRate "-bufsize:v" $videoBitRate $audioFlags "-y" $absoluteFileName)
 	fi
 
 	echo "executing ffmpeg cmd:" $cmdToGenerateVideo
